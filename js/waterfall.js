@@ -31,224 +31,181 @@ class NoteScheduler {
   clear() { this._events = []; }
 }
 
-// ── Trail Sparkle System (waterfall-private) ─────────────────
+// ── Complex Flame Particle System ────────────────────────────
 
-const _sparks = [];
-const _MAX_SPARKS = 320;
-const _ripples = [];
-const _MAX_RIPPLES = 220;
+const _flames = [];
+const _MAX_FLAMES = 1200; // Large pool for dense flame look
 
-// Frame-rate independent FX clock for consistent emission and motion
+// Frame-rate independent FX clock
 let _fxLastMs = 0;
 let _fxDt = 1 / 60;
-
 function _beginFxFrame() {
   const now = performance.now();
-  if (_fxLastMs === 0) {
-    _fxLastMs = now;
-    _fxDt = 1 / 60;
-    return;
-  }
-  _fxDt = (now - _fxLastMs) / 1000;
+  if (_fxLastMs === 0) { _fxLastMs = now; _fxDt = 1/60; return; }
+  _fxDt = Math.max(1/240, Math.min(0.05, (now - _fxLastMs) / 1000));
   _fxLastMs = now;
-  _fxDt = Math.max(1 / 240, Math.min(0.05, _fxDt));
 }
 
-function _emitSpark(x, y, fill, glow) {
-  if (_sparks.length >= _MAX_SPARKS) return;
-  _sparks.push({
-    x: x + (Math.random() - 0.5) * 4,
-    y,
-    vx: (Math.random() - 0.5) * 0.78,
-    vy: -(0.45 + Math.random() * 1.05),
-    life:  1.0,
-    decay: 0.024 + Math.random() * 0.035,
-    r:     0.45 + Math.random() * 0.9,
-    fill,
-    glow,
-  });
-}
-
-function _updateDrawSparks(ctx) {
-  for (let i = _sparks.length - 1; i >= 0; i--) {
-    const s = _sparks[i];
-    const f = _fxDt * 60;
-    s.x    += s.vx * f;
-    s.y    += s.vy * f;
-    s.vy   += 0.022 * f;   // faint gravity so they arc gently
-    s.life -= s.decay * f;
-    if (s.life <= 0) { _sparks.splice(i, 1); continue; }
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, s.life * 0.80);
-    ctx.shadowColor = s.glow;
-    ctx.shadowBlur  = 5;
-    ctx.fillStyle   = s.life > 0.55 ? '#ffffff' : s.fill;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r * Math.max(0.1, s.life), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+// Emits a group of interconnected stringy flame particles
+function _emitFlame(x, y, fill, strength = 1, isImpact = false) {
+  if (_flames.length >= _MAX_FLAMES) return;
+  const k = Math.max(0.6, Math.min(2.5, strength));
+  const count = isImpact ? 16 : 3;
+  
+  // They start with somewhat constrained offset to form "threads"
+  const threadBaseX = x + (Math.random() - 0.5) * (6 + 8 * k);
+  const threadPhase = Math.random() * Math.PI * 2;
+  
+  for(let i = 0; i < count; i++) {
+    if (_flames.length >= _MAX_FLAMES) break;
+    const isCore = Math.random() > 0.5; // High brightness core particles
+    _flames.push({
+      xBase: threadBaseX + (Math.random() - 0.5) * (isImpact ? 12 : 3),
+      x: threadBaseX,
+      y: y + (Math.random() - 0.5) * 4,
+      vx: (Math.random() - 0.5) * 0.15,
+      vy: -(2.5 + Math.random() * (2.5 + 2.5 * k)),
+      life: 1.0,
+      decay: 0.012 + Math.random() * (0.010 + 0.008 * k) * (isImpact ? 1.4 : 1.0),
+      size: 0.8 + Math.random() * 1.5,
+      fill: fill,
+      isCore: isCore,
+      amp: 2.0 + Math.random() * (8 * k),
+      freq: 0.03 + Math.random() * 0.05,
+      phase: threadPhase + (Math.random() - 0.5) * 0.8,
+      age: 0
+    });
   }
 }
 
-// ── Smoke Trail System (waterfall-private) ───────────────────
-
-const _smoke    = [];
-const _MAX_SMOKE = 200;
-
-function _emitSmoke(x, y, fill, strength = 1) {
-  if (_smoke.length >= _MAX_SMOKE) return;
-  const k = Math.max(0.6, Math.min(2.2, strength));
-  _smoke.push({
-    x:     x + (Math.random() - 0.5) * (14 + 10 * k),
-    y,
-    vx:    (Math.random() - 0.5) * (0.35 + 0.20 * k),
-    vy:    -(0.65 + Math.random() * (0.75 + 0.40 * k)),
-    r:     5 + Math.random() * (7 + 4 * k),
-    life:  1.0,
-    decay: 0.0048 + Math.random() * (0.0045 + 0.0014 * k),
-    fill,
-    wobblePhase: Math.random() * Math.PI * 2,
-    wobbleAmp: 0.06 + Math.random() * 0.12,
-    wobbleFreq: 0.8 + Math.random() * 1.2,
-  });
-}
-
-function _updateDrawSmoke(ctx) {
-  for (let i = _smoke.length - 1; i >= 0; i--) {
-    const s = _smoke[i];
+function _updateDrawFlames(ctx) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = _flames.length - 1; i >= 0; i--) {
+    const p = _flames[i];
     const f = _fxDt * 60;
-    s.wobblePhase += s.wobbleFreq * _fxDt;
-    s.x    += (s.vx + Math.sin(s.wobblePhase) * s.wobbleAmp) * f;
-    s.y    += s.vy * f;
-    s.vy   *= Math.pow(0.992, f);
-    s.r    += 0.18 * f;
-    s.life -= s.decay * f;
-    if (s.life <= 0) { _smoke.splice(i, 1); continue; }
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, Math.pow(s.life, 1.25) * 0.34);
-    ctx.shadowColor = s.fill;
-    ctx.shadowBlur  = s.r * 2.9;
-    ctx.fillStyle   = s.fill;
+    p.age += f;
+    
+    // Smooth snaking motion
+    const wave = Math.sin(p.age * p.freq + p.phase) * p.amp;
+    p.xBase += p.vx * f;
+    p.x = p.xBase + wave;
+    p.y += p.vy * f;
+    p.vy *= Math.pow(0.985, f); // slightly slow down rise
+    
+    p.life -= p.decay * f;
+    if (p.life <= 0) { _flames.splice(i, 1); continue; }
+    
+    const alpha = Math.max(0, p.life * (p.life > 0.5 ? 1 : p.life * 1.5));
+    
+    ctx.globalAlpha = alpha * (p.isCore ? 0.9 : 0.6);
+    ctx.shadowColor = p.fill;
+    ctx.shadowBlur = p.isCore ? 8 : 4;
+    ctx.fillStyle = p.isCore ? (p.life > 0.6 ? '#ffffff' : '#e6f0ff') : p.fill;
+    
+    // Draw dot for the head
     ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, p.size * (0.4 + p.life * 0.6), 0, Math.PI * 2);
     ctx.fill();
-
-    // Bright inner core to mimic denser smoke center
-    ctx.globalAlpha = Math.max(0, Math.pow(s.life, 1.9) * 0.08);
-    ctx.shadowBlur  = s.r * 0.7;
-    ctx.fillStyle   = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r * 0.34, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    
+    // Draw stringy tail connecting its path to look like continuous flame/wisps
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.shadowBlur = 0;
+    const tailLen = p.size * 6 * p.life;
+    ctx.fillRect(p.x - p.size*0.3, p.y, p.size*0.6, tailLen);
   }
+  ctx.restore();
 }
 
-function _emitRipple(x, y, fill, strength = 1) {
+// ── Top Keyboard Burst & Glow System ─────────────────────────
+const _ripples = [];
+const _MAX_RIPPLES = 120;
+
+function _emitRipple(x, y, fill, width, isImpact=false) {
   if (_ripples.length >= _MAX_RIPPLES) return;
-  const k = Math.max(0.6, Math.min(2.0, strength));
   _ripples.push({
-    x,
-    y,
-    r: 2 + Math.random() * 2,
-    maxR: 14 + Math.random() * 14 * k,
-    life: 1,
-    decay: 0.024 + Math.random() * 0.018,
-    lineW: 0.8 + Math.random() * 0.8,
+    x, y, width,
+    life: 1.0,
+    decay: isImpact ? 0.04 : 0.08, // slower decay for impact flash
     fill,
+    isImpact
   });
 }
 
 function _updateDrawRipples(ctx) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
   for (let i = _ripples.length - 1; i >= 0; i--) {
-    const rp = _ripples[i];
+    const r = _ripples[i];
     const f = _fxDt * 60;
-    rp.r += 1.15 * f;
-    rp.life -= rp.decay * f;
-    if (rp.life <= 0 || rp.r >= rp.maxR) { _ripples.splice(i, 1); continue; }
-
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, Math.pow(rp.life, 1.35) * 0.55);
-    ctx.strokeStyle = '#ffffff';
-    ctx.shadowColor = rp.fill;
-    ctx.shadowBlur = 10;
-    ctx.lineWidth = rp.lineW;
+    r.life -= r.decay * f;
+    if (r.life <= 0) { _ripples.splice(i, 1); continue; }
+    
+    // Ripple spreads outwards slightly
+    const stretch = r.isImpact ? (1.0 + (1.0 - r.life) * 1.8) : 1.0;
+    const alpha = Math.max(0, r.life);
+    const w = r.width * stretch;
+    
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.shadowColor = r.fill;
+    ctx.shadowBlur = r.isImpact ? 25 : 12;
+    ctx.fillStyle = r.life > 0.6 ? '#ffffff' : r.fill;
+    
+    // Draw an intense horizontal oval (glow line)
     ctx.beginPath();
-    ctx.ellipse(rp.x, rp.y, rp.r * 1.45, rp.r * 0.55, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.ellipse(r.x, r.y, w / 2, r.isImpact ? 3 : 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = alpha * 0.4;
+    ctx.ellipse(r.x, r.y, w, r.isImpact ? 6 : 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
-    ctx.globalAlpha = Math.max(0, Math.pow(rp.life, 1.1) * 0.20);
-    ctx.strokeStyle = rp.fill;
-    ctx.shadowBlur = 4;
-    ctx.lineWidth = Math.max(0.6, rp.lineW * 0.7);
-    ctx.beginPath();
-    ctx.ellipse(rp.x, rp.y, rp.r * 1.85, rp.r * 0.7, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
+// ── Ambient background wisps ────────────────────────────────
+const _ambientParticles = [];
+let _ambientCarry = 0;
+function _emitAmbient(canvasW, y) {
+  _ambientCarry += 15 * _fxDt;
+  while(_ambientCarry >= 1) {
+    _ambientCarry--;
+    if (_ambientParticles.length > 250) break;
+    _ambientParticles.push({
+      x: Math.random() * canvasW,
+      y: y,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: -(0.5 + Math.random() * 2.0),
+      life: 1,
+      decay: 0.005 + Math.random() * 0.015,
+      size: 0.5 + Math.random() * 1.2
+    });
   }
 }
 
-// ── Rising Wisp System (waterfall-private) ───────────────────
-
-const _wisps    = [];
-const _MAX_WISPS = 220;
-
-function _emitWisp(x, y, fill) {
-  if (_wisps.length >= _MAX_WISPS) return;
-  _wisps.push({
-    x:         x + (Math.random() - 0.5) * 16,
-    y,
-    vx:        (Math.random() - 0.5) * 0.40,
-    vy:        -(0.20 + Math.random() * 0.48),
-    r:         9 + Math.random() * 12,
-    life:      1.0,
-    decay:     0.0036 + Math.random() * 0.0034,
-    fill,
-    age:       0,
-    swayAmp:   0.26 + Math.random() * 0.38,
-    swayFreq:  0.028 + Math.random() * 0.024,
-    swayPhase: Math.random() * Math.PI * 2,
-  });
-}
-
-function _updateDrawWisps(ctx) {
-  for (let i = _wisps.length - 1; i >= 0; i--) {
-    const w = _wisps[i];
+function _updateDrawAmbient(ctx) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = _ambientParticles.length - 1; i >= 0; i--) {
+    const p = _ambientParticles[i];
     const f = _fxDt * 60;
-    w.age++;
-    w.x    += (w.vx + Math.sin(w.age * w.swayFreq + w.swayPhase) * w.swayAmp) * f;
-    w.y    += w.vy * f;
-    w.vy   *= Math.pow(0.998, f);
-    w.r    += 0.24 * f;
-    w.life -= w.decay * f;
-    if (w.life <= 0) { _wisps.splice(i, 1); continue; }
-    ctx.save();
-    // Outer glow
-    ctx.globalAlpha = Math.max(0, Math.pow(w.life, 1.4) * 0.20);
-    ctx.shadowColor = w.fill;
-    ctx.shadowBlur  = w.r * 2.8;
-    ctx.fillStyle   = w.fill;
-    ctx.beginPath();
-    ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2);
-    ctx.fill();
-    // Bright white inner core
-    ctx.globalAlpha = Math.max(0, Math.pow(w.life, 2.4) * 0.14);
-    ctx.shadowBlur  = w.r * 0.6;
-    ctx.fillStyle   = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(w.x, w.y, w.r * 0.30, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    p.x += p.vx * f;
+    p.y += p.vy * f;
+    p.life -= p.decay * f;
+    if (p.life <= 0) { _ambientParticles.splice(i, 1); continue; }
+    ctx.globalAlpha = p.life * 0.35;
+    ctx.fillStyle = '#b3d4ff';
+    ctx.fillRect(p.x, p.y, p.size, p.size * (2 + p.life * 2));
   }
+  ctx.restore();
 }
 
-// Per-note FX state for precise trigger timing
+// Per-note FX state array wrapper
 const _noteFxState = new WeakMap();
 
 function _getNoteFxState(ev) {
   let st = _noteFxState.get(ev);
   if (!st) {
-    st = { smokeCarry: 0, sparkCarry: 0, didImpact: false };
+    st = { flameCarry: 0, rippleCarry: 0, didImpact: false };
     _noteFxState.set(ev, st);
   }
   return st;
@@ -383,39 +340,24 @@ const WaterfallRenderer = {
         ctx.restore();
       }
 
-      // ── Trail sparkles ────────────────────────────────────
-      if (timeUntilStart <= 0 && timeUntilEnd > 0 && yBottom > 8) {
-        const st = _getNoteFxState(ev);
-        const holdLife = Math.max(0, Math.min(1, Math.min(ev.endSec - currentTime, 0.55) / 0.55));
-        const sparkRate = (1.3 + holdLife * 1.9) * (key.isBlack ? 0.82 : 1.0);
-        st.sparkCarry += sparkRate * _fxDt;
-        while (st.sparkCarry >= 1) {
-          st.sparkCarry -= 1;
-          _emitSpark(nx + nw / 2 + (Math.random() - 0.5) * nw * 0.34, waterfallH - 1, tc.fill, tc.glow);
-        }
-      }
-
-      // ── Smoke trail ───────────────────────────────────────
+      // ── Flame trail (complex twisted particles) ───────────
       if (timeUntilStart <= 0 && timeUntilEnd > 0 && yBottom > 8) {
         const st = _getNoteFxState(ev);
         const holdLife = Math.max(0, Math.min(1, Math.min(ev.endSec - currentTime, 0.8) / 0.8));
-        const smokeRate = (1.0 + holdLife * 2.2) * (key.isBlack ? 0.76 : 1.0);
-        st.smokeCarry += smokeRate * _fxDt;
-        while (st.smokeCarry >= 1) {
-          st.smokeCarry -= 1;
-          _emitSmoke(
-            nx + nw / 2 + (Math.random() - 0.5) * nw * 0.38,
-            waterfallH - 1,
-            tc.fill,
-            0.78 + holdLife * 0.42
-          );
+        const flameRate = (1.5 + holdLife * 3.5) * (key.isBlack ? 0.8 : 1.0);
+        st.flameCarry += flameRate * _fxDt;
+        const cx = nx + nw / 2;
+        while (st.flameCarry >= 1) {
+          st.flameCarry -= 1;
+          _emitFlame(cx, waterfallH - 1, tc.fill, 0.8 + holdLife * 0.6, false);
         }
-      }
-
-      // ── Rising wisps ──────────────────────────────────────
-      if (timeUntilStart <= 0 && timeUntilEnd > 0 && yBottom > 8) {
-        if (Math.random() < 0.07)
-          _emitWisp(nx + nw / 2 + (Math.random() - 0.5) * nw * 0.55, waterfallH - 1, tc.fill);
+        
+        // Continuous emitting highlight ripples while playing
+        st.rippleCarry += 8 * _fxDt;
+        while (st.rippleCarry >= 1) {
+          st.rippleCarry -= 1;
+          _emitRipple(cx, waterfallH - 1, tc.fill, nw * (2.0 + Math.random()), false);
+        }
       }
 
       // ── Precise impact pulse when the bar touches keyboard line ─
@@ -424,14 +366,13 @@ const WaterfallRenderer = {
         if (!st.didImpact) {
           st.didImpact = true;
           const cx = nx + nw / 2;
-          const pulseSmoke = key.isBlack ? 4 : 6;
-          const pulseSpark = key.isBlack ? 3 : 5;
-          for (let i = 0; i < pulseSmoke; i++)
-            _emitSmoke(cx + (Math.random() - 0.5) * nw * 0.42, waterfallH - 1, tc.fill, 1.55);
-          for (let i = 0; i < pulseSpark; i++)
-            _emitSpark(cx + (Math.random() - 0.5) * nw * 0.36, waterfallH - 2, tc.fill, tc.glow);
-          _emitWisp(cx, waterfallH - 2, tc.fill);
-          _emitRipple(cx, waterfallH + 1, tc.fill, key.isBlack ? 0.9 : 1.25);
+          
+          // Burst of flames
+          _emitFlame(cx, waterfallH - 1, tc.fill, key.isBlack ? 1.6 : 2.2, true);
+          
+          // Large intense ripple impact flash at the keyboard line
+          _emitRipple(cx, waterfallH - 1, '#ffffff', nw * 6, true);
+          _emitRipple(cx, waterfallH - 1, tc.fill, nw * 10, true);
         }
       }
 
@@ -453,17 +394,15 @@ const WaterfallRenderer = {
       }
     }
 
-    // Draw keyboard ripples close to key line
+    // Draw ambient floating wisps in background
+    _emitAmbient(canvasW, waterfallH - 1);
+    _updateDrawAmbient(ctx);
+
+    // Draw the main complex flame particles
+    _updateDrawFlames(ctx);
+
+    // Draw the high intensity top keyboard piano line ripples
     _updateDrawRipples(ctx);
-
-    // Draw wisps (furthest back, longest lasting)
-    _updateDrawWisps(ctx);
-
-    // Draw smoke trails (behind sparkles)
-    _updateDrawSmoke(ctx);
-
-    // Draw all trail sparkles (within clipped waterfall area)
-    _updateDrawSparks(ctx);
 
     ctx.restore();
 

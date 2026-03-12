@@ -30,6 +30,11 @@ const bgUrlInput  = document.getElementById('bg-url');
 const bgFileInput = document.getElementById('bg-file');
 
 const BG_STORE_KEY = 'webpiano.customBackground.v1';
+const BG_DB_NAME = 'webpiano.backgroundCache';
+const BG_DB_STORE = 'images';
+const BG_DB_KEY = 'active';
+
+let _activeBgObjectUrl = null;
 
 // ── State ────────────────────────────────────────────────────
 let layout     = null;
@@ -103,7 +108,9 @@ function resize() {
 
 window.addEventListener('resize', () => { resize(); });
 resize();
-restoreBackgroundState();
+restoreBackgroundState().catch(() => {
+  localStorage.removeItem(BG_STORE_KEY);
+});
 
 // ── Helpers ──────────────────────────────────────────────────
 function trackColor(idx) {
@@ -126,11 +133,29 @@ function escapeCssUrl(url) {
 }
 
 function applyCustomBackground(imageSrc) {
+  if (_activeBgObjectUrl) {
+    URL.revokeObjectURL(_activeBgObjectUrl);
+    _activeBgObjectUrl = null;
+  }
   document.documentElement.style.setProperty('--custom-bg-image', `url("${escapeCssUrl(imageSrc)}")`);
   document.body.classList.add('has-custom-bg');
 }
 
+function applyCustomBackgroundBlob(blob) {
+  if (_activeBgObjectUrl) {
+    URL.revokeObjectURL(_activeBgObjectUrl);
+    _activeBgObjectUrl = null;
+  }
+  _activeBgObjectUrl = URL.createObjectURL(blob);
+  document.documentElement.style.setProperty('--custom-bg-image', `url("${escapeCssUrl(_activeBgObjectUrl)}")`);
+  document.body.classList.add('has-custom-bg');
+}
+
 function clearCustomBackgroundVisual() {
+  if (_activeBgObjectUrl) {
+    URL.revokeObjectURL(_activeBgObjectUrl);
+    _activeBgObjectUrl = null;
+  }
   document.documentElement.style.setProperty('--custom-bg-image', 'none');
   document.body.classList.remove('has-custom-bg');
 }
@@ -144,25 +169,81 @@ function readLocalImageAsDataURL(file) {
   });
 }
 
-async function tryCacheRemoteAsDataURL(url) {
+async function fetchRemoteImageBlob(url) {
   const resp = await fetch(url, { mode: 'cors' });
   if (!resp.ok) throw new Error('图片下载失败');
-  const blob = await resp.blob();
-  return await readLocalImageAsDataURL(blob);
+  return await resp.blob();
+}
+
+function openBgCacheDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(BG_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(BG_DB_STORE)) db.createObjectStore(BG_DB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('无法打开背景缓存数据库'));
+  });
+}
+
+async function putCachedBackgroundBlob(blob) {
+  const db = await openBgCacheDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(BG_DB_STORE, 'readwrite');
+    tx.objectStore(BG_DB_STORE).put(blob, BG_DB_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('写入背景缓存失败'));
+  });
+  db.close();
+}
+
+async function getCachedBackgroundBlob() {
+  const db = await openBgCacheDb();
+  const blob = await new Promise((resolve, reject) => {
+    const tx = db.transaction(BG_DB_STORE, 'readonly');
+    const req = tx.objectStore(BG_DB_STORE).get(BG_DB_KEY);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error || new Error('读取背景缓存失败'));
+  });
+  db.close();
+  return blob;
+}
+
+async function deleteCachedBackgroundBlob() {
+  const db = await openBgCacheDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(BG_DB_STORE, 'readwrite');
+    tx.objectStore(BG_DB_STORE).delete(BG_DB_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('清理背景缓存失败'));
+  });
+  db.close();
 }
 
 function saveBackgroundState(payload) {
   localStorage.setItem(BG_STORE_KEY, JSON.stringify(payload));
 }
 
-function restoreBackgroundState() {
+async function restoreBackgroundState() {
   const raw = localStorage.getItem(BG_STORE_KEY);
   if (!raw) return;
   try {
     const data = JSON.parse(raw);
-    if (!data || !data.src) return;
-    applyCustomBackground(data.src);
-    if (data.kind === 'url' && data.originalUrl) bgUrlInput.value = data.originalUrl;
+    if (!data) return;
+
+    if (data.kind === 'file-blob' || data.kind === 'url-blob') {
+      const blob = await getCachedBackgroundBlob();
+      if (blob) {
+        applyCustomBackgroundBlob(blob);
+      } else if (data.originalUrl) {
+        applyCustomBackground(data.originalUrl);
+      }
+    } else if (data.src) {
+      applyCustomBackground(data.src);
+    }
+
+    if (data.originalUrl) bgUrlInput.value = data.originalUrl;
   } catch (e) {
     localStorage.removeItem(BG_STORE_KEY);
   }
@@ -186,22 +267,22 @@ async function applyBackgroundFromUrl() {
 
   let payload = {
     kind: 'url',
-    src: url,
     originalUrl: url,
+    src: url,
     cachedAt: Date.now(),
   };
 
-  // If CORS allows, also cache image data so it still works when URL expires.
+  // If CORS allows, cache image blob in IndexedDB for robust persistence.
   try {
-    const dataUrl = await tryCacheRemoteAsDataURL(url);
+    const blob = await fetchRemoteImageBlob(url);
+    await putCachedBackgroundBlob(blob);
     payload = {
-      kind: 'url',
-      src: dataUrl,
+      kind: 'url-blob',
       originalUrl: url,
       cachedAt: Date.now(),
     };
   } catch (e) {
-    // Fall back to the direct URL if cross-origin cache is not possible.
+    // Fall back to direct URL when CORS or cache is unavailable.
   }
 
   saveBackgroundState(payload);
@@ -216,19 +297,19 @@ async function applyBackgroundFromFile() {
     return;
   }
 
-  const dataUrl = await readLocalImageAsDataURL(file);
-  applyCustomBackground(dataUrl);
+  applyCustomBackgroundBlob(file);
+  await putCachedBackgroundBlob(file);
   saveBackgroundState({
-    kind: 'file',
-    src: dataUrl,
+    kind: 'file-blob',
     filename: file.name,
     cachedAt: Date.now(),
   });
   closeBgModal();
 }
 
-function clearBackgroundSetting() {
+async function clearBackgroundSetting() {
   localStorage.removeItem(BG_STORE_KEY);
+  await deleteCachedBackgroundBlob().catch(() => {});
   clearCustomBackgroundVisual();
   bgUrlInput.value = '';
   bgFileInput.value = '';
@@ -355,8 +436,9 @@ btnBgApplyFile.addEventListener('click', () => {
 });
 
 btnBgClear.addEventListener('click', () => {
-  clearBackgroundSetting();
-  closeBgModal();
+  clearBackgroundSetting()
+    .catch(() => {})
+    .finally(() => closeBgModal());
 });
 
 fileInput.addEventListener('change', () => {
