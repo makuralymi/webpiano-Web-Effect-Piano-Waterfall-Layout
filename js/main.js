@@ -20,6 +20,16 @@ const songTime    = document.getElementById('song-time');
 const progFill    = document.getElementById('progress-fill');
 const progCursor  = document.getElementById('progress-cursor');
 const progTrack   = document.getElementById('progress-track');
+const btnBg       = document.getElementById('btn-bg');
+const bgModal     = document.getElementById('bg-modal');
+const btnBgClose  = document.getElementById('btn-bg-close');
+const btnBgApplyUrl = document.getElementById('btn-bg-apply-url');
+const btnBgApplyFile = document.getElementById('btn-bg-apply-file');
+const btnBgClear  = document.getElementById('btn-bg-clear');
+const bgUrlInput  = document.getElementById('bg-url');
+const bgFileInput = document.getElementById('bg-file');
+
+const BG_STORE_KEY = 'webpiano.customBackground.v1';
 
 // ── State ────────────────────────────────────────────────────
 let layout     = null;
@@ -93,6 +103,7 @@ function resize() {
 
 window.addEventListener('resize', () => { resize(); });
 resize();
+restoreBackgroundState();
 
 // ── Helpers ──────────────────────────────────────────────────
 function trackColor(idx) {
@@ -108,6 +119,119 @@ function fmtTime(sec) {
 
 function noteColor(midi, trackIdx) {
   return trackColorMap.get(trackIdx) ?? trackColor(trackIdx);
+}
+
+function escapeCssUrl(url) {
+  return String(url).replace(/"/g, '\\"');
+}
+
+function applyCustomBackground(imageSrc) {
+  document.documentElement.style.setProperty('--custom-bg-image', `url("${escapeCssUrl(imageSrc)}")`);
+  document.body.classList.add('has-custom-bg');
+}
+
+function clearCustomBackgroundVisual() {
+  document.documentElement.style.setProperty('--custom-bg-image', 'none');
+  document.body.classList.remove('has-custom-bg');
+}
+
+function readLocalImageAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('读取本地图片失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function tryCacheRemoteAsDataURL(url) {
+  const resp = await fetch(url, { mode: 'cors' });
+  if (!resp.ok) throw new Error('图片下载失败');
+  const blob = await resp.blob();
+  return await readLocalImageAsDataURL(blob);
+}
+
+function saveBackgroundState(payload) {
+  localStorage.setItem(BG_STORE_KEY, JSON.stringify(payload));
+}
+
+function restoreBackgroundState() {
+  const raw = localStorage.getItem(BG_STORE_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (!data || !data.src) return;
+    applyCustomBackground(data.src);
+    if (data.kind === 'url' && data.originalUrl) bgUrlInput.value = data.originalUrl;
+  } catch (e) {
+    localStorage.removeItem(BG_STORE_KEY);
+  }
+}
+
+function openBgModal() {
+  bgModal.classList.add('open');
+  bgModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeBgModal() {
+  bgModal.classList.remove('open');
+  bgModal.setAttribute('aria-hidden', 'true');
+}
+
+async function applyBackgroundFromUrl() {
+  const url = bgUrlInput.value.trim();
+  if (!url) return;
+
+  applyCustomBackground(url);
+
+  let payload = {
+    kind: 'url',
+    src: url,
+    originalUrl: url,
+    cachedAt: Date.now(),
+  };
+
+  // If CORS allows, also cache image data so it still works when URL expires.
+  try {
+    const dataUrl = await tryCacheRemoteAsDataURL(url);
+    payload = {
+      kind: 'url',
+      src: dataUrl,
+      originalUrl: url,
+      cachedAt: Date.now(),
+    };
+  } catch (e) {
+    // Fall back to the direct URL if cross-origin cache is not possible.
+  }
+
+  saveBackgroundState(payload);
+  closeBgModal();
+}
+
+async function applyBackgroundFromFile() {
+  const file = bgFileInput.files && bgFileInput.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件');
+    return;
+  }
+
+  const dataUrl = await readLocalImageAsDataURL(file);
+  applyCustomBackground(dataUrl);
+  saveBackgroundState({
+    kind: 'file',
+    src: dataUrl,
+    filename: file.name,
+    cachedAt: Date.now(),
+  });
+  closeBgModal();
+}
+
+function clearBackgroundSetting() {
+  localStorage.removeItem(BG_STORE_KEY);
+  clearCustomBackgroundVisual();
+  bgUrlInput.value = '';
+  bgFileInput.value = '';
 }
 
 // ── MIDI file loading ────────────────────────────────────────
@@ -212,6 +336,28 @@ const kbInput = new KeyboardInput(
 
 // ── UI Controls ──────────────────────────────────────────────
 btnImport.addEventListener('click', () => fileInput.click());
+
+btnBg.addEventListener('click', openBgModal);
+btnBgClose.addEventListener('click', closeBgModal);
+bgModal.addEventListener('click', (e) => {
+  if (e.target && e.target.dataset && e.target.dataset.close === '1') closeBgModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && bgModal.classList.contains('open')) closeBgModal();
+});
+
+btnBgApplyUrl.addEventListener('click', () => {
+  applyBackgroundFromUrl().catch((err) => alert(err.message || 'URL 背景设置失败'));
+});
+
+btnBgApplyFile.addEventListener('click', () => {
+  applyBackgroundFromFile().catch((err) => alert(err.message || '本地背景设置失败'));
+});
+
+btnBgClear.addEventListener('click', () => {
+  clearBackgroundSetting();
+  closeBgModal();
+});
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];

@@ -20,6 +20,7 @@
           <span>导入 MIDI</span>
           <input id="file-input" type="file" accept=".mid,.midi" style="display:none">
         </button>
+        <button id="btn-bg" class="btn">背景设置</button>
       </div>
 
       <div class="control-group transport">
@@ -59,6 +60,38 @@
 
     <!-- Keyboard shortcut hint -->
     <div id="kb-hint">键盘演奏: Z–M / Q–U (两个八度) · Space 播放/暂停</div>
+  </div>
+
+  <div id="bg-modal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="bg-modal-title">
+      <div class="modal-header">
+        <h2 id="bg-modal-title">自定义背景</h2>
+        <button id="btn-bg-close" class="btn btn-icon" title="关闭">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <label class="field-label" for="bg-url">背景图片 URL</label>
+        <div class="field-row">
+          <input id="bg-url" class="text-input" type="url" placeholder="https://example.com/bg.jpg">
+          <button id="btn-bg-apply-url" class="btn btn-accent">应用 URL</button>
+        </div>
+
+        <div class="sep">或</div>
+
+        <label class="field-label" for="bg-file">本地图片</label>
+        <div class="field-row">
+          <input id="bg-file" type="file" accept="image/*">
+          <button id="btn-bg-apply-file" class="btn btn-accent">应用本地图片</button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-bg-clear" class="btn">恢复默认</button>
+      </div>
+    </div>
   </div>
 
   <!-- JS files loaded in dependency order -->

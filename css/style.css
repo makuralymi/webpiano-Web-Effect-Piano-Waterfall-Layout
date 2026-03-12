@@ -1,30 +1,65 @@
 /* ======================================================
-   WebPiano — Ember-inspired dark theme
-   ====================================================== */
+  WebPiano — Pink neon theme
+  ====================================================== */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:          #09090f;
-  --surface:     #111120;
-  --surface2:    #181830;
-  --border:      #252545;
-  --text:        #b8b8d0;
-  --text-dim:    #5a5a80;
-  --accent:      #ff8c00;
-  --accent-glow: rgba(255,140,0,0.35);
+  --bg:          #140916;
+  --surface:     rgba(39, 18, 39, 0.82);
+  --surface2:    rgba(56, 25, 56, 0.78);
+  --border:      rgba(255, 155, 232, 0.25);
+  --text:        #ffdff5;
+  --text-dim:    #d6a9cc;
+  --accent:      #ff61c7;
+  --accent2:     #ff9ce8;
+  --accent-glow: rgba(255, 97, 199, 0.45);
   --ctrl-h:      50px;
   --prog-h:      4px;
   --hint-h:      26px;
+  --custom-bg-image: none;
 }
 
 html, body {
   width: 100%; height: 100%;
-  background: var(--bg);
+  background:
+    radial-gradient(130% 80% at 50% -10%, #6d2b6b 0%, rgba(109,43,107,0.18) 46%, transparent 74%),
+    linear-gradient(180deg, #140916 0%, #110714 100%);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, sans-serif;
   overflow: hidden;
+  -webkit-user-select: none;
   user-select: none;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--custom-bg-image);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  filter: saturate(1.04) contrast(1.02);
+  transform: scale(1.02);
+  transition: opacity 0.25s ease;
+  z-index: -2;
+  pointer-events: none;
+}
+
+body.has-custom-bg::before {
+  opacity: 0.44;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20,9,22,0.62), rgba(20,9,22,0.72));
+  z-index: -1;
+  pointer-events: none;
 }
 
 #app {
@@ -39,6 +74,8 @@ html, body {
   height: var(--ctrl-h);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   gap: 16px;
@@ -61,7 +98,7 @@ html, body {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  background: linear-gradient(90deg, #ff8c00, #ffcc55);
+  background: linear-gradient(90deg, #ff6bca, #ffc3f0);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -80,11 +117,11 @@ html, body {
   white-space: nowrap;
 }
 .btn:hover {
-  background: #1e1e38;
+  background: rgba(255,255,255,0.08);
   border-color: var(--accent);
 }
 .btn:active {
-  background: #252545;
+  background: rgba(255,255,255,0.12);
 }
 .btn:disabled {
   opacity: 0.35;
@@ -96,7 +133,7 @@ html, body {
   color: var(--accent);
 }
 .btn-accent:hover {
-  background: rgba(255,140,0,0.12);
+  background: rgba(255,97,199,0.15);
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
@@ -189,7 +226,7 @@ html, body {
 #progress-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ff8c00, #ffcc55);
+  background: linear-gradient(90deg, #ff61c7, #ffd3f5);
   transition: width 0.1s linear;
   pointer-events: none;
 }
@@ -222,6 +259,8 @@ html, body {
   height: var(--hint-h);
   background: var(--surface);
   border-top: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -229,6 +268,115 @@ html, body {
   color: var(--text-dim);
   letter-spacing: 0.03em;
   flex-shrink: 0;
+}
+
+/* ─── Background modal ─────────────────────────────── */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+}
+.modal.open { display: flex; }
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 8, 16, 0.72);
+}
+
+.modal-panel {
+  position: relative;
+  width: min(560px, calc(100vw - 24px));
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(43,19,44,0.95), rgba(30,13,33,0.96));
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45), 0 0 24px rgba(255,97,199,0.22);
+  overflow: hidden;
+}
+
+.modal-header,
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.03);
+}
+
+.modal-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.modal-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.field-row .btn { flex-shrink: 0; }
+
+.text-input,
+#bg-file {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+
+.text-input:focus,
+#bg-file:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255,97,199,0.18);
+}
+
+.sep {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  #controls {
+    gap: 8px;
+    padding: 0 10px;
+  }
+
+  #song-title {
+    max-width: 140px;
+  }
+
+  .field-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .field-row .btn {
+    width: 100%;
+  }
 }
 
 /* ─── File import drag overlay ─────────────────────── */
