@@ -96,11 +96,22 @@ const MidiParser = (() => {
             events.push({ absT, trackIndex, channel, type: 'noteOff', note, velocity: vel });
             break;
           }
-          case 0xA0:  // Aftertouch (2 bytes)
-          case 0xB0:  // Control Change (2 bytes)
-          case 0xE0:  // Pitch Bend (2 bytes)
+          case 0xA0:  // Aftertouch (skip)
             pos += 2;
             break;
+          case 0xB0: {   // Control Change
+            const cc  = view.getUint8(pos++);
+            const val = view.getUint8(pos++);
+            events.push({ absT, trackIndex, channel, type: 'cc', cc, value: val });
+            break;
+          }
+          case 0xE0: {   // Pitch Bend  (-8192 … +8191)
+            const lo   = view.getUint8(pos++);
+            const hi   = view.getUint8(pos++);
+            const bend = ((hi << 7) | lo) - 8192;
+            events.push({ absT, trackIndex, channel, type: 'pitchBend', value: bend });
+            break;
+          }
           case 0xC0:  // Program Change (1 byte)
           case 0xD0:  // Channel Pressure (1 byte)
             pos += 1;
@@ -230,11 +241,26 @@ const MidiParser = (() => {
 
     noteEvents.sort((a, b) => a.startSec - b.startSec);
 
+    // ── Collect CC + Pitch Bend events (ticks → seconds) ────
+    const ccEvents = [];
+    for (const ev of allRaw) {
+      if (ev.type !== 'cc' && ev.type !== 'pitchBend') continue;
+      ccEvents.push({
+        startSec:   ticksToSec(ev.absT, tempoMap, tpb),
+        type:       ev.type,          // 'cc' | 'pitchBend'
+        cc:         ev.cc ?? null,    // controller number (null for pitchBend)
+        value:      ev.value,
+        channel:    ev.channel,
+        trackIndex: ev.trackIndex,
+      });
+    }
+    ccEvents.sort((a, b) => a.startSec - b.startSec);
+
     // Determine unique, real tracks (with at least one note)
     const trackSet = new Set(noteEvents.map(e => e.trackIndex));
     const tracks   = [...trackSet].sort((a, b) => a - b);
 
-    return { format, tpb, noteEvents, durationSec: maxEnd, trackNames, tracks };
+    return { format, tpb, noteEvents, ccEvents, durationSec: maxEnd, trackNames, tracks };
   }
 
   return { parse };

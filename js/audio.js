@@ -5,9 +5,9 @@
 
 // ── Local FL Studio samples (Close Grand, 88 keys, 1 file/key) ──
 // Sample N  →  MIDI note (N + 20)   [ N = 1..88, MIDI 21(A0)..108(C8) ]
-const _LOCAL_BASE  = './samples/';
+const _LOCAL_BASE  = './samples_ogg/';
 const _LOCAL_COUNT = 88;
-function _localUrl(n)    { return `${_LOCAL_BASE}Close%20Grand%20${n}.wav`; }
+function _localUrl(n)    { return `${_LOCAL_BASE}Close%20Grand%20${n}.ogg`; }
 function _localMidi(n)   { return n + 20; }         // n=1 → MIDI 21 (A0)
 function _localN(midi)   { return midi - 20; }       // MIDI 21 → n=1
 
@@ -41,6 +41,10 @@ class AudioEngine {
     this._samplerReady = false;
     this._loadStarted  = false;
     this._usingLocal   = false;       // true when local files loaded OK
+
+    // Sustain pedal state
+    this._sustainEvents   = [];        // [{when, on}] sorted by audio time
+    this._sustainedVoices = new Map(); // midi → voice (held beyond noteOff by pedal)
 
     // Callbacks
     this.onLoadProgress = null;   // (loaded, total) => void
@@ -182,17 +186,74 @@ class AudioEngine {
     const when  = atTime ?? this._ctx.currentTime;
     const voice = this._voices.get(midi);
     if (!voice) return;
-    voice.isSampler ? this._noteOffSampler(midi, when)
-                    : this._noteOffOsc(midi, when);
+    this._voices.delete(midi);
+    if (this._isSustainAt(when)) {
+      this._sustainedVoices.set(midi, voice);  // hold until pedal lifts
+    } else {
+      this._releaseVoice(voice, when);
+    }
+  }
+
+  // ── CC / Pedal ────────────────────────────────────────────
+  // Called from midi-player with precise audio-clock timestamps
+  cc(type, ccNum, value, audioT) {
+    if (!this._ctx) this._init();
+    if (type !== 'cc') return;  // ignore pitchBend etc. for now
+
+    const when = typeof audioT === 'number' ? audioT : this._ctx.currentTime;
+
+    if (ccNum === 64) {  // Sustain / Damper pedal
+      this._sustainEvents.push({ when, on: value >= 64 });
+      this._sustainEvents.sort((a, b) => a.when - b.when);
+      // Prune events more than 2 s in the past
+      const cutoff = this._ctx.currentTime - 2;
+      while (this._sustainEvents.length && this._sustainEvents[0].when < cutoff)
+        this._sustainEvents.shift();
+
+      if (value < 64) {
+        // Pedal released — let all sustained voices fade out at 'when'
+        for (const voice of this._sustainedVoices.values())
+          this._releaseVoice(voice, when);
+        this._sustainedVoices.clear();
+      }
+    }
   }
 
   allNotesOff() {
     if (!this._ctx) return;
     const now = this._ctx.currentTime;
     for (const m of [...this._voices.keys()]) this._stopVoice(m, now);
+    for (const voice of this._sustainedVoices.values()) this._releaseVoice(voice, now);
+    this._sustainedVoices.clear();
+    this._sustainEvents = [];
   }
 
   // ── Sampler implementation ───────────────────────────────
+  _isSustainAt(audioTime) {
+    let on = false;
+    for (const ev of this._sustainEvents) {
+      if (ev.when > audioTime) break;
+      on = ev.on;
+    }
+    return on;
+  }
+
+  _releaseVoice(voice, when) {
+    if (voice.isSampler) {
+      const R = 0.40;
+      voice.env.gain.cancelScheduledValues(when);
+      voice.env.gain.setValueAtTime(voice.env.gain.value, when);
+      voice.env.gain.exponentialRampToValueAtTime(0.0001, when + R);
+      try { voice.src.stop(when + R + 0.05); } catch (_) {}
+    } else {
+      const R = 0.35;
+      voice.env.gain.cancelScheduledValues(when);
+      voice.env.gain.setValueAtTime(voice.env.gain.value, when);
+      voice.env.gain.exponentialRampToValueAtTime(0.0001, when + R);
+      voice.oscs.forEach(o => { try { o.stop(when + R + 0.02); } catch (_) {} });
+    }
+  }
+
   _findNearestBuffer(midi) {
     // Local mode: exact match always available (playbackRate = 1)
     if (this._usingLocal && this._buffers.has(midi)) return { midi, rate: 1 };
@@ -287,6 +348,15 @@ class AudioEngine {
   }
 
   _stopVoice(midi, when) {
+    // Stop any sustained voice on the same note (prevent layering on re-press)
+    const sv = this._sustainedVoices.get(midi);
+    if (sv) {
+      sv.env.gain.cancelScheduledValues(when);
+      sv.env.gain.setValueAtTime(0, when);
+      if (sv.isSampler) { try { sv.src.stop(when + 0.01); } catch (_) {} }
+      else sv.oscs.forEach(o => { try { o.stop(when + 0.01); } catch (_) {} });
+      this._sustainedVoices.delete(midi);
+    }
     const v = this._voices.get(midi);
     if (!v) return;
     v.env.gain.cancelScheduledValues(when);

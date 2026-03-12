@@ -169,6 +169,7 @@ player.onNoteOn = (midi, velocity, trackIdx) => {
     const cx = key.x + key.w / 2;
     const cy = keyboardY + (key.isBlack ? 4 : 6);
     particles.burst(cx, cy, [tc.fill, '#ffffff', 'rgba(255,255,255,0.6)'], 20);
+    particles.smokeBurst(cx, cy, tc.fill, 6);
   }
 };
 
@@ -200,6 +201,7 @@ const kbInput = new KeyboardInput(
       const cx = key.x + key.w / 2;
       const cy = keyboardY + (key.isBlack ? 4 : 6);
       particles.burst(cx, cy, [tc.fill, '#ffffff'], 16);
+      particles.smokeBurst(cx, cy, tc.fill, 5);
     }
   },
   (midi) => {

@@ -18,6 +18,8 @@ class MidiPlayer {
     this._interval     = null;
     this._schedIdx     = 0;      // next event index to audio‑schedule
     this._visualIdx    = 0;      // next event index for visual callbacks
+    this._ccSchedIdx   = 0;      // next CC event index for audio scheduling
+    this._ccVisualIdx  = 0;      // next CC event index for visual callbacks
     this._LOOKAHEAD    = 0.15;   // seconds ahead to schedule audio
 
     // Active note tracking (for noteOff)
@@ -28,6 +30,7 @@ class MidiPlayer {
     this.onNoteOff = null;   // (midi) => void
     this.onEnded   = null;   // () => void
     this.onTick    = null;   // (songTimeSec) => void
+    this.onCC      = null;   // (type, cc, value, channel, trackIndex) => void
 
     this._prevSongTime = 0;
     // notes currently visually active
@@ -130,6 +133,19 @@ class MidiPlayer {
     if (t >= this.duration + 0.3) {
       this.stop();
       if (this.onEnded) this.onEnded();
+      return;
+    }
+
+    // Fire onCC for CC/pitchBend events crossing the playhead
+    if (this.onCC) {
+      const ccEvts = this._data.ccEvents || [];
+      while (this._ccVisualIdx < ccEvts.length && ccEvts[this._ccVisualIdx].startSec < prev)
+        this._ccVisualIdx++;
+      let ci = this._ccVisualIdx;
+      while (ci < ccEvts.length && ccEvts[ci].startSec <= t) {
+        const ev = ccEvts[ci++];
+        this.onCC(ev.type, ev.cc, ev.value, ev.channel, ev.trackIndex);
+      }
     }
   }
 
@@ -140,11 +156,16 @@ class MidiPlayer {
     this._prevSongTime = songTime;
     this._activeNotes.clear();
 
-    // Reset schedule index: first event at or after songTime
+    // Reset note schedule indices
     const evts = this._data.noteEvents;
     this._schedIdx  = this._lowerBound(evts, songTime - 0.01);
     this._visualIdx = this._lowerBound(evts, Math.max(0, songTime - 0.05));
     this._pendingOffs = [];
+
+    // Reset CC indices
+    const ccEvts = this._data.ccEvents || [];
+    this._ccSchedIdx  = this._lowerBound(ccEvts, songTime - 0.01);
+    this._ccVisualIdx = this._lowerBound(ccEvts, Math.max(0, songTime - 0.05));
   }
 
   _lowerBound(arr, t) {
@@ -201,6 +222,18 @@ class MidiPlayer {
         });
       }
       this._schedIdx++;
+    }
+
+    // Schedule CC / pitch‑bend events with precise audio timing
+    const ccEvts = this._data.ccEvents || [];
+    while (this._ccSchedIdx < ccEvts.length) {
+      const ev = ccEvts[this._ccSchedIdx];
+      if (ev.startSec > horizon) break;
+      if (ev.startSec >= songNow - 0.05) {
+        const audioT = this._origin + ev.startSec / this._speed;
+        this.audio.cc(ev.type, ev.cc, ev.value, audioT);
+      }
+      this._ccSchedIdx++;
     }
   }
 }
