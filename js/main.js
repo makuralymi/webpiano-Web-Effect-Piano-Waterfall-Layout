@@ -37,10 +37,24 @@ const tcModalBody = document.getElementById('tc-modal-body');
 const btnTcClose  = document.getElementById('btn-tc-close');
 const btnTcReset  = document.getElementById('btn-tc-reset');
 
+// Sample download modal elements
+const sampleModal      = document.getElementById('sample-modal');
+const btnSampleDl      = document.getElementById('btn-sample-dl');
+const btnSampleSkip    = document.getElementById('btn-sample-skip');
+const sampleDlSection  = document.getElementById('sample-dl-section');
+const sampleDlBarFill  = document.getElementById('sample-dl-bar-fill');
+const sampleDlPct      = document.getElementById('sample-dl-pct');
+const sampleDlStatus   = document.getElementById('sample-dl-status');
+const btnDownloadSample = document.getElementById('btn-download-sample');
+
 const BG_STORE_KEY = 'webpiano.customBackground.v1';
 const BG_DB_NAME = 'webpiano.backgroundCache';
 const BG_DB_STORE = 'images';
 const BG_DB_KEY = 'active';
+const SAMPLE_STATE_KEY = 'webpiano.sampleState'; // null | 'downloaded' | 'skipped'
+
+function getSampleState() { return localStorage.getItem(SAMPLE_STATE_KEY); }
+function setSampleState(v) { localStorage.setItem(SAMPLE_STATE_KEY, v); }
 
 let _activeBgObjectUrl = null;
 window.BG_IMAGE  = null;
@@ -78,13 +92,17 @@ function getSampleBadge() {
   return el;
 }
 
-function startLoadingSamples() {
+// Core loader — wires callbacks and fires audio.loadSamples()
+function _doLoadSamples(onProgress, onComplete, onError) {
   const badge = getSampleBadge();
   badge.textContent = '音源 加载中…';
+  badge.style.color = badge.style.borderColor = badge.style.textShadow = badge.style.cursor = '';
+  badge.title = '';
 
   audio.onLoadProgress = (loaded, total) => {
     const pct = Math.round(loaded / total * 100);
     badge.textContent = `音源 ${pct}%`;
+    if (onProgress) onProgress(pct);
   };
   audio.onLoadComplete = (src) => {
     const label = src === 'local' ? '本地音源 ✓' : 'CDN音源 ✓';
@@ -92,6 +110,8 @@ function startLoadingSamples() {
     badge.style.color  = '#39ff14';
     badge.style.borderColor = '#39ff14';
     badge.style.textShadow = '0 0 6px #39ff14';
+    setSampleState('downloaded');
+    if (onComplete) onComplete(src);
   };
   audio.onLoadError = (msg) => {
     badge.textContent  = '⚠ 需要HTTP服务器';
@@ -99,9 +119,49 @@ function startLoadingSamples() {
     badge.style.borderColor = '#ff4444';
     badge.style.cursor = 'help';
     badge.title = msg + '\n双击 start-server.bat，然后访问 http://localhost:8000';
+    if (onError) onError(msg);
   };
 
   audio.loadSamples();
+}
+
+// Auto-start on page load and user-gesture triggers (no-op when user chose synthesizer)
+function startLoadingSamples() {
+  const st = getSampleState();
+  if (st === 'skipped' || st === null) return;
+  if (audio._loadStarted) return;
+  _doLoadSamples();
+}
+
+// ── Sample modal ─────────────────────────────────────────────
+function openSampleModal() {
+  sampleDlSection.style.display = 'none';
+  sampleDlBarFill.style.width = '0%';
+  sampleDlPct.textContent = '0%';
+  sampleDlStatus.textContent = '下载中…';
+  btnSampleDl.disabled = false;
+  btnSampleSkip.disabled = false;
+  sampleModal.classList.add('open');
+  sampleModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeSampleModal() {
+  sampleModal.classList.remove('open');
+  sampleModal.setAttribute('aria-hidden', 'true');
+}
+
+function showDownloadButton() { btnDownloadSample.style.display = ''; }
+function hideDownloadButton() { btnDownloadSample.style.display = 'none'; }
+
+function initSampleState() {
+  const state = getSampleState();
+  if (state === 'downloaded') {
+    startLoadingSamples();
+  } else if (state === 'skipped') {
+    showDownloadButton();
+  } else {
+    openSampleModal();
+  }
 }
 
 // ── Canvas resize ────────────────────────────────────────────
@@ -123,6 +183,7 @@ resize();
 restoreBackgroundState().catch(() => {
   localStorage.removeItem(BG_STORE_KEY);
 });
+initSampleState();
 
 // Auto-load default MIDI on startup
 const DEFAULT_MIDI = '【鸣潮】3.1 OST 我与你.mid';
@@ -541,6 +602,56 @@ btnImport.addEventListener('click', () => fileInput.click());
 
 btnBg.addEventListener('click', openBgModal);
 btnBgClose.addEventListener('click', closeBgModal);
+
+// Sample download modal
+btnSampleDl.addEventListener('click', () => {
+  sampleDlSection.style.display = '';
+  btnSampleDl.disabled = true;
+  btnSampleSkip.disabled = true;
+  _doLoadSamples(
+    (pct) => {
+      sampleDlBarFill.style.width = pct + '%';
+      sampleDlPct.textContent = pct + '%';
+    },
+    () => {
+      sampleDlStatus.textContent = '下载完成';
+      sampleDlPct.textContent = '✓';
+      setTimeout(() => closeSampleModal(), 900);
+      hideDownloadButton();
+    },
+    (msg) => {
+      sampleDlStatus.textContent = '⚠ ' + msg;
+      sampleDlPct.textContent = '';
+      btnSampleSkip.disabled = false;
+    }
+  );
+});
+
+btnSampleSkip.addEventListener('click', () => {
+  setSampleState('skipped');
+  closeSampleModal();
+  showDownloadButton();
+});
+
+// Download button in controls bar (shown after user skips)
+btnDownloadSample.addEventListener('click', () => {
+  if (audio._loadStarted) return;
+  btnDownloadSample.disabled = true;
+  btnDownloadSample.textContent = '音源 0%';
+  _doLoadSamples(
+    (pct) => { btnDownloadSample.textContent = `音源 ${pct}%`; },
+    () => {
+      btnDownloadSample.textContent = '音源 ✓';
+      btnDownloadSample.style.color = '#39ff14';
+      btnDownloadSample.style.borderColor = '#39ff14';
+    },
+    () => {
+      btnDownloadSample.textContent = '↓ 重试';
+      btnDownloadSample.style.color = '#ff4444';
+      btnDownloadSample.disabled = false;
+    }
+  );
+});
 
 // Grid toggle
 btnToggleGrid.classList.toggle('active', window.SHOW_GRID);

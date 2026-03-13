@@ -21,6 +21,7 @@
           <input id="file-input" type="file" accept=".mid,.midi" style="display:none">
         </button>
         <button id="btn-bg" class="btn">背景设置</button>
+        <button id="btn-download-sample" class="btn" style="display:none">↓ 下载音源</button>
         <button id="btn-toggle-grid" class="btn active" title="显示/隐藏小节线">小节线</button>
         <button id="btn-track-colors" class="btn" title="自定义轨道颜色" disabled>轨道颜色</button>
       </div>
@@ -118,6 +119,36 @@
       </div>
     </div>
   </div>
+  <!-- Sample download prompt modal -->
+  <div id="sample-modal" class="modal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="sample-modal-title">
+      <div class="modal-header">
+        <h2 id="sample-modal-title">🎹 钢琴音源</h2>
+      </div>
+      <div class="modal-body">
+        <p class="sample-p-main">是否下载高质量钢琴采样音源？</p>
+        <p class="sample-p-sub">
+          本地音源约 <strong>30 MB</strong>，提供真实钢琴音色。<br>
+          如果本地音源不可用，将自动从 CDN 获取（约 <strong>15 MB</strong>）。<br>
+          选择<em>使用合成器</em>则跳过下载，随时可从顶栏重新下载。
+        </p>
+        <div id="sample-dl-section" class="sample-dl-section" style="display:none">
+          <div class="sample-dl-bar">
+            <div id="sample-dl-bar-fill" class="sample-dl-bar-fill"></div>
+          </div>
+          <div class="sample-dl-meta">
+            <span id="sample-dl-status">下载中…</span>
+            <span id="sample-dl-pct">0%</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-sample-skip" class="btn">使用合成器</button>
+        <button id="btn-sample-dl" class="btn btn-accent">立即下载</button>
+      </div>
+    </div>
+  </div>
+
   <!-- JS files loaded in dependency order -->
   <script src="./js/constants.js"></script>
   <script src="./js/audio.js"></script>

@@ -513,3 +513,81 @@ body::after {
   min-width: 54px;
   text-align: right;
 }
+
+/* ─── Sample download progress bar ─────────────────── */
+.sample-dl-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.sample-dl-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff61c7, #ffd3f5);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* ─── Sample prompt modal — frosted glass ────────────── */
+#sample-modal .modal-panel {
+  width: min(500px, calc(100vw - 28px));
+  background: rgba(22, 6, 28, 0.46);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6) brightness(1.08);
+  backdrop-filter: blur(32px) saturate(1.6) brightness(1.08);
+  border: 1px solid rgba(255, 155, 232, 0.30);
+  box-shadow:
+    0 28px 72px rgba(0,0,0,0.52),
+    0 0 0 1px rgba(255,97,199,0.08) inset,
+    0 0 48px rgba(255,97,199,0.14);
+}
+#sample-modal .modal-header {
+  padding: 18px 22px;
+  background: rgba(255,255,255,0.035);
+  border-bottom: 1px solid rgba(255,155,232,0.15);
+}
+#sample-modal .modal-header h2 {
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+#sample-modal .modal-body {
+  padding: 22px;
+  gap: 16px;
+}
+.sample-p-main {
+  font-size: 17px;
+  color: var(--text);
+  font-weight: 500;
+}
+.sample-p-sub {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.85;
+}
+.sample-p-sub strong {
+  color: var(--accent);
+}
+.sample-dl-section {
+  margin-top: 6px;
+}
+#sample-modal .sample-dl-bar {
+  height: 8px;
+}
+.sample-dl-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+#sample-modal .modal-footer {
+  padding: 14px 22px;
+  background: rgba(255,255,255,0.028);
+  border-top: 1px solid rgba(255,155,232,0.12);
+}
+#sample-modal .modal-footer .btn {
+  padding: 9px 24px;
+  font-size: 14px;
+}
