@@ -12,7 +12,7 @@ class Particle {
     this.vy     = -(fast ? (1.8 + Math.random() * 2.2) : (0.8 + Math.random() * 1.4));
     this.vxBase = (Math.random() - 0.5) * 0.3;
     this.life   = 1.0;
-    this.decay  = 0.007 + Math.random() * 0.008;
+    this.decay  = 0.004 + Math.random() * 0.008;
     this.r      = 2 + Math.random() * 3.0;
     this.color  = color;
     this.amp    = 3 + Math.random() * 8;
@@ -32,6 +32,7 @@ class Particle {
     this._ty[this._th] = this.y;
     this._th = (this._th + 1) % _TRAIL_LEN;
     if (this._tc < _TRAIL_LEN) this._tc++;
+    if (this.y < 10) this.life = 0;  // early kill for stragglers that float off-screen
 
     this.age   += 1;
     this.xBase += this.vxBase;
