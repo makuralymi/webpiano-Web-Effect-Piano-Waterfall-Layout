@@ -126,7 +126,7 @@ restoreBackgroundState().catch(() => {
 
 // Auto-load default MIDI on startup
 const DEFAULT_MIDI = '【鸣潮】3.1 OST 我与你.mid';
-fetch(DEFAULT_MIDI)
+  fetch(encodeURI(DEFAULT_MIDI))
   .then(r => { if (!r.ok) throw new Error('default midi not found'); return r.arrayBuffer(); })
   .then(buf => { if (!midiData) loadMidi(buf, DEFAULT_MIDI); })
   .catch(() => {});
