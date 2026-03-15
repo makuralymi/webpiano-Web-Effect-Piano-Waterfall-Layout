@@ -5,15 +5,15 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:          #140916;
+  --bg:          #9c919e;
   --surface:     rgba(39, 18, 39, 0.82);
   --surface2:    rgba(56, 25, 56, 0.78);
-  --border:      rgba(255, 155, 232, 0.25);
+  --border:      rgba(255, 255, 255, 0.25);
   --text:        #ffdff5;
   --text-dim:    #d6a9cc;
   --accent:      #ff61c7;
   --accent2:     #ff9ce8;
-  --accent-glow: rgba(255, 97, 199, 0.45);
+  --accent-glow: rgba(203, 198, 201, 0.677);
   --ctrl-h:      50px;
   --prog-h:      4px;
   --hint-h:      26px;
@@ -55,14 +55,14 @@ body.has-custom-bg::before {
 
 /* When custom bg is active, lighten the global dark overlay so it shows behind the top bar */
 body.has-custom-bg::after {
-  background: linear-gradient(180deg, rgba(20,9,22,0.08), rgba(20,9,22,0.22));
+  background: linear-gradient(180deg, rgba(230, 218, 232, 0.691), rgba(215, 204, 216, 0.81));
 }
 
 body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, rgba(20,9,22,0.62), rgba(20,9,22,0.72));
+  background: linear-gradient(180deg, rgba(144, 131, 146, 0.971), rgba(234, 225, 235, 0.794));
   z-index: -1;
   pointer-events: none;
 }
@@ -77,10 +77,10 @@ body::after {
 /* ─── Controls bar ─────────────────────────────────── */
 #controls {
   height: var(--ctrl-h);
-  background: rgba(8, 3, 12, 0.10);
-  border-bottom: 1px solid rgba(255, 155, 232, 0.22);
+  background: rgba(0, 0, 0, 0.359);
+  border-bottom: 1px solid rgb(255, 155, 232, 0.28);
   -webkit-backdrop-filter: blur(30px) saturate(2.2) brightness(1.05);
-  backdrop-filter: blur(30px) saturate(2.2) brightness(1.05);
+  backdrop-filter: blur(3px) saturate(2.2) brightness(1.05); 
   display: flex;
   align-items: center;
   gap: 16px;
