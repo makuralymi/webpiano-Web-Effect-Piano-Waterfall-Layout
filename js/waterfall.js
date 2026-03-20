@@ -245,22 +245,8 @@ const WaterfallRenderer = {
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, canvasW, waterfallH);
 
-    // ── Subtle horizontal grid lines ────────────────────────
-    const pps = waterfallH / fallSec;  // pixels per second
-    if (window.SHOW_GRID !== false) {
-      ctx.strokeStyle = 'rgba(28,28,55,0.6)';
-      ctx.lineWidth   = 0.5;
-      const beatH = pps * 0.5;   // one line every 0.5 s (rough)
-      const gridOffset = (currentTime * pps) % beatH;
-      for (let y = waterfallH - gridOffset; y > 0; y -= beatH) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvasW, y);
-        ctx.stroke();
-      }
-    }
-
     // ── Note bars ────────────────────────────────────────────
+    const pps = waterfallH / fallSec;  // pixels per second
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, canvasW, waterfallH);
