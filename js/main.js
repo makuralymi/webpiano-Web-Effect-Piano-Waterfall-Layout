@@ -537,6 +537,7 @@ function openTrackColorsModal() {
   for (const [tIdx, tc] of trackColorMap) {
     const name = (midiData.trackNames && midiData.trackNames[tIdx]) || `轨道 ${tIdx + 1}`;
     const hex  = _hexFromFill(tc.fill);
+    const isGradient = tc.fill && tc.fill.startsWith('gradient:');
 
     const row = document.createElement('div');
     row.className = 'tc-row';
@@ -544,11 +545,16 @@ function openTrackColorsModal() {
     // Color swatch + hidden input
     const wrap = document.createElement('div');
     wrap.className = 'tc-swatch-wrap';
-    wrap.style.background = hex;
+    if (isGradient) {
+      wrap.style.background = 'linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+      wrap.title = '彩虹渐变';
+    } else {
+      wrap.style.background = hex;
+    }
 
     const picker = document.createElement('input');
     picker.type  = 'color';
-    picker.value = hex;
+    picker.value = isGradient ? '#ffffff' : hex;
     picker.title = '点击选色';
     picker.addEventListener('input', () => {
       const newHex = picker.value;
@@ -574,11 +580,36 @@ function openTrackColorsModal() {
 
     const hexLabel = document.createElement('span');
     hexLabel.className = 'tc-hex';
-    hexLabel.textContent = hex.toUpperCase();
+    hexLabel.textContent = isGradient ? '渐变' : hex.toUpperCase();
+
+    // Add gradient button
+    const gradBtn = document.createElement('button');
+    gradBtn.className = 'btn btn-sm';
+    gradBtn.textContent = '🌈';
+    gradBtn.title = '应用彩虹渐变';
+    gradBtn.style.marginLeft = '8px';
+    gradBtn.style.padding = '2px 8px';
+    gradBtn.style.fontSize = '14px';
+    gradBtn.addEventListener('click', () => {
+      trackColorMap.set(tIdx, { fill: 'gradient:rainbow', glow: 'rgba(255,255,255,0.85)' });
+      wrap.style.background = 'linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+      hexLabel.textContent = '渐变';
+      // sync legend swatch
+      const swatches = document.querySelectorAll('#track-legend .track-dot-swatch');
+      let i = 0;
+      for (const [k] of trackColorMap) {
+        if (k === tIdx && swatches[i]) {
+          swatches[i].style.background = 'linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+          swatches[i].style.boxShadow  = '0 0 4px rgba(255,255,255,0.85)';
+        }
+        i++;
+      }
+    });
 
     row.appendChild(wrap);
     row.appendChild(label);
     row.appendChild(hexLabel);
+    row.appendChild(gradBtn);
     tcModalBody.appendChild(row);
   }
   tcModal.classList.add('open');
@@ -602,15 +633,32 @@ function resetTrackColors() {
 // ── Player callbacks ─────────────────────────────────────────
 player.onNoteOn = (midi, velocity, trackIdx) => {
   const tc  = noteColor(midi, trackIdx);
-  layout.press(midi, tc.fill);
+  
+  // Handle gradient mode - calculate color based on MIDI note
+  const isGradient = tc.fill && tc.fill.startsWith('gradient:rainbow');
+  let pressColor, particleColors, smokeColor;
+  
+  if (isGradient) {
+    const noteRatio = (midi - 21) / (108 - 21);
+    const hue = noteRatio * 300;
+    pressColor = `hsl(${hue}, 100%, 60%)`;
+    particleColors = [pressColor, '#ffffff', pressColor, 'rgba(255,255,255,0.8)'];
+    smokeColor = pressColor;
+  } else {
+    pressColor = tc.fill;
+    particleColors = [tc.fill, '#ffffff', tc.fill, 'rgba(255,255,255,0.8)'];
+    smokeColor = tc.fill;
+  }
+  
+  layout.press(midi, pressColor);
 
   const key = layout.getKey(midi);
   if (key) {
     const cx = key.x + key.w / 2;
     const cy = keyboardY + (key.isBlack ? 4 : 6);
-    particles.burst(cx, cy, [tc.fill, '#ffffff', tc.fill, 'rgba(255,255,255,0.8)'], 12);
-    particles.smokeBurst(cx, cy, tc.fill, 4);
-    _activeNotes.set(midi, { color: tc.fill, key, carry: 0 });
+    particles.burst(cx, cy, particleColors, 12);
+    particles.smokeBurst(cx, cy, smokeColor, 4);
+    _activeNotes.set(midi, { color: pressColor, key, carry: 0 });
   }
 };
 
@@ -638,13 +686,30 @@ const kbInput = new KeyboardInput(
     startLoadingSamples();   // no-op if already started
     audio.noteOn(midi, vel, null);
     const tc = trackColor(0);
-    layout.press(midi, tc.fill);
+    
+    // Handle gradient mode - calculate color based on MIDI note
+    const isGradient = tc.fill && tc.fill.startsWith('gradient:rainbow');
+    let pressColor, particleColors, smokeColor;
+    
+    if (isGradient) {
+      const noteRatio = (midi - 21) / (108 - 21);
+      const hue = noteRatio * 300;
+      pressColor = `hsl(${hue}, 100%, 60%)`;
+      particleColors = [pressColor, '#ffffff', pressColor];
+      smokeColor = pressColor;
+    } else {
+      pressColor = tc.fill;
+      particleColors = [tc.fill, '#ffffff', tc.fill];
+      smokeColor = tc.fill;
+    }
+    
+    layout.press(midi, pressColor);
     const key = layout.getKey(midi);
     if (key) {
       const cx = key.x + key.w / 2;
       const cy = keyboardY + (key.isBlack ? 4 : 6);
-      particles.burst(cx, cy, [tc.fill, '#ffffff', tc.fill], 12);
-      particles.smokeBurst(cx, cy, tc.fill, 4);
+      particles.burst(cx, cy, particleColors, 12);
+      particles.smokeBurst(cx, cy, smokeColor, 4);
       _activeNotes.set(midi, { color: tc.fill, key, carry: 0 });
     }
   },

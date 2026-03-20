@@ -273,6 +273,21 @@ const WaterfallRenderer = {
       const tc  = trackColorMap.get(ev.trackIndex)
                   || CONSTANTS.TRACK_COLORS[ev.trackIndex % CONSTANTS.TRACK_COLORS.length];
 
+      // Handle gradient fill - calculate color based on MIDI note (21-108)
+      const isGradient = tc.fill && tc.fill.startsWith('gradient:rainbow');
+      let fillColor, glowColor;
+      
+      if (isGradient) {
+        // Map MIDI note (21-108) to rainbow colors
+        const noteRatio = (ev.midi - 21) / (108 - 21);
+        const hue = noteRatio * 300; // 0° red to 300° violet (avoiding wrapping to red)
+        fillColor = `hsl(${hue}, 100%, 60%)`;
+        glowColor = `hsla(${hue}, 100%, 60%, 0.85)`;
+      } else {
+        fillColor = tc.fill;
+        glowColor = tc.glow;
+      }
+
       const timeUntilStart = ev.startSec - currentTime;
       const timeUntilEnd   = ev.endSec   - currentTime;
 
@@ -293,8 +308,8 @@ const WaterfallRenderer = {
 
       // ── Pass 1: Outer glow (double-layer bloom) ──────────
       ctx.save();
-      ctx.fillStyle   = tc.fill;
-      ctx.shadowColor = tc.glow;
+      ctx.fillStyle   = fillColor;
+      ctx.shadowColor = glowColor;
       ctx.shadowBlur  = key.isBlack ? 14 : 22;
       ctx.globalAlpha = 0.50 + prox * 0.28;
       ctx.beginPath();
@@ -310,11 +325,11 @@ const WaterfallRenderer = {
       const leadBright = (0.28 + prox * 0.52).toFixed(2);
       const noteGrad = ctx.createLinearGradient(nx, yTop, nx, yBottom);
       noteGrad.addColorStop(0,    'rgba(255,255,255,0.22)');
-      noteGrad.addColorStop(0.07, tc.fill);
-      noteGrad.addColorStop(0.50, tc.fill);
-      noteGrad.addColorStop(0.88, tc.fill);
+      noteGrad.addColorStop(0.07, fillColor);
+      noteGrad.addColorStop(0.50, fillColor);
+      noteGrad.addColorStop(0.88, fillColor);
       noteGrad.addColorStop(0.95, `rgba(255,255,255,${leadBright})`);
-      noteGrad.addColorStop(1,    tc.fill);
+      noteGrad.addColorStop(1,    fillColor);
       ctx.fillStyle = noteGrad;
       ctx.beginPath();
       ctx.roundRect(nx, yTop, nw, height, r);
@@ -346,7 +361,7 @@ const WaterfallRenderer = {
         const edgeH = Math.min(5, height);
         ctx.save();
         ctx.globalAlpha = prox * 0.82;
-        ctx.shadowColor = tc.fill;
+        ctx.shadowColor = fillColor;
         ctx.shadowBlur  = 20 * prox;
         const eg = ctx.createLinearGradient(0, yBottom - edgeH, 0, yBottom + 1);
         eg.addColorStop(0, 'rgba(255,255,255,0)');
@@ -365,14 +380,14 @@ const WaterfallRenderer = {
         const cx = nx + nw / 2;
         while (st.flameCarry >= 1) {
           st.flameCarry -= 1;
-          _emitFlame(cx, waterfallH - 1, tc.fill, 0.8 + holdLife * 0.6, false);
+          _emitFlame(cx, waterfallH - 1, fillColor, 0.8 + holdLife * 0.6, false);
         }
         
         // Continuous emitting highlight ripples while playing
         st.rippleCarry += 8 * _fxDt;
         while (st.rippleCarry >= 1) {
           st.rippleCarry -= 1;
-          _emitRipple(cx, waterfallH - 1, tc.fill, nw * (2.0 + Math.random()), false);
+          _emitRipple(cx, waterfallH - 1, fillColor, nw * (2.0 + Math.random()), false);
         }
       }
 
@@ -384,11 +399,11 @@ const WaterfallRenderer = {
           const cx = nx + nw / 2;
           
           // Burst of flames
-          _emitFlame(cx, waterfallH - 1, tc.fill, key.isBlack ? 1.6 : 2.2, true);
+          _emitFlame(cx, waterfallH - 1, fillColor, key.isBlack ? 1.6 : 2.2, true);
           
           // Large intense ripple impact flash at the keyboard line
           _emitRipple(cx, waterfallH - 1, '#ffffff', nw * 6, true);
-          _emitRipple(cx, waterfallH - 1, tc.fill, nw * 10, true);
+          _emitRipple(cx, waterfallH - 1, fillColor, nw * 10, true);
         }
       }
 
@@ -402,7 +417,7 @@ const WaterfallRenderer = {
         hg.addColorStop(0.62, `rgba(255,255,255,${(0.34 + holdT * 0.16).toFixed(2)})`);
         hg.addColorStop(1, `rgba(255,255,255,${(0.60 + holdT * 0.24).toFixed(2)})`);
         ctx.globalAlpha = key.isBlack ? 0.62 : 0.78;
-        ctx.shadowColor = tc.fill;
+        ctx.shadowColor = fillColor;
         ctx.shadowBlur = key.isBlack ? 10 : 14;
         ctx.fillStyle = hg;
         ctx.fillRect(nx + 1, waterfallH - glowH, Math.max(1, nw - 2), glowH + 1);
