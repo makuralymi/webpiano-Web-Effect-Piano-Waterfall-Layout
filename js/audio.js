@@ -56,7 +56,6 @@ class AudioEngine {
   _init() {
     if (this._ctx) return;
     this._ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this._ctx.resume();
     this._master = this._ctx.createGain();
     this._master.gain.value = this.volume;
     this._master.connect(this._ctx.destination);
@@ -65,6 +64,18 @@ class AudioEngine {
     rv.gain.value = 0.18;
     this._reverb.connect(rv);
     rv.connect(this._master);
+  }
+
+  // Ensure AudioContext is running (call on user gesture)
+  async ensureStarted() {
+    this._init();
+    if (this._ctx.state === 'suspended') {
+      try {
+        await this._ctx.resume();
+      } catch (err) {
+        console.warn('[WebPiano] AudioContext resume failed:', err);
+      }
+    }
   }
 
   _buildReverb(dur, decay) {
@@ -84,6 +95,9 @@ class AudioEngine {
     if (this._loadStarted) return;
     this._loadStarted = true;
     this._init();
+    
+    // Ensure AudioContext is running
+    await this.ensureStarted();
 
     // file:// blocks all fetch() — must use HTTP server
     if (location.protocol === 'file:') {

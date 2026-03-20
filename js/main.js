@@ -687,7 +687,8 @@ player.onTick = (t) => {
 
 // ── Keyboard (PC) input callbacks ────────────────────────────
 const kbInput = new KeyboardInput(
-  (midi, vel) => {
+  async (midi, vel) => {
+    await audio.ensureStarted();
     startLoadingSamples();   // no-op if already started
     audio.noteOn(midi, vel, null);
     const tc = trackColor(0);
@@ -894,8 +895,9 @@ function setPlayIcon(isPlaying) {
   else           btnPlay.classList.remove('playing');
 }
 
-btnPlay.addEventListener('click', () => {
+btnPlay.addEventListener('click', async () => {
   if (!midiData) return;
+  await audio.ensureStarted();  // Ensure AudioContext is running before play
   startLoadingSamples();   // no-op if already started
   if (player.state === 'playing') {
     player.pause();
