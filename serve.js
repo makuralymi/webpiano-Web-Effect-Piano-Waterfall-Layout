@@ -18,11 +18,40 @@ const MIME = {
   '.json': 'application/json',
 };
 
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-cache',
+  });
+  res.end(JSON.stringify(payload));
+}
+
 http.createServer((req, res) => {
   // Decode percent-encoded URL (handles spaces: %20 → ' ')
   let pathname;
   try { pathname = decodeURIComponent(req.url.split('?')[0]); }
   catch { res.writeHead(400); res.end(); return; }
+
+  if (pathname === '/api/playlist') {
+    const playlistDir = path.join(ROOT, 'playlist');
+    fs.readdir(playlistDir, { withFileTypes: true }, (err, entries) => {
+      if (err) {
+        sendJson(res, 200, { files: [] });
+        return;
+      }
+
+      const files = entries
+        .filter((entry) => entry.isFile() && /\.(mid|midi)$/i.test(entry.name))
+        .map((entry) => ({
+          name: entry.name,
+          path: `playlist/${encodeURIComponent(entry.name)}`,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+
+      sendJson(res, 200, { files });
+    });
+    return;
+  }
 
   let filePath = path.join(ROOT, pathname);
 

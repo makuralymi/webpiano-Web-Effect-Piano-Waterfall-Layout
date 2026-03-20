@@ -16,17 +16,22 @@
       </div>
 
       <div class="control-group">
+        <input id="file-input" class="is-hidden" type="file" accept=".mid,.midi" title="选择 MIDI 文件" aria-label="选择 MIDI 文件">
         <button id="btn-import" class="btn btn-accent">
           <span>导入 MIDI</span>
-          <input id="file-input" type="file" accept=".mid,.midi" style="display:none">
         </button>
         <button id="btn-bg" class="btn">背景设置</button>
-        <button id="btn-download-sample" class="btn" style="display:none">↓ 下载音源</button>
+        <button id="btn-download-sample" class="btn is-hidden">↓ 下载音源</button>
         <button id="btn-toggle-grid" class="btn active" title="显示/隐藏小节线">小节线</button>
         <button id="btn-track-colors" class="btn" title="自定义轨道颜色" disabled>轨道颜色</button>
       </div>
 
       <div class="control-group transport">
+        <div class="playlist-group" title="播放列表">
+          <select id="playlist-select" aria-label="播放列表"></select>
+          <button id="btn-playlist-load" class="btn">加载</button>
+        </div>
+
         <button id="btn-play" class="btn btn-icon" disabled title="播放 (Space)">
           <svg viewBox="0 0 24 24" width="18" height="18"><polygon points="5,3 19,12 5,21" fill="currentColor"/></svg>
         </button>
@@ -36,14 +41,14 @@
       </div>
 
       <div class="control-group slider-group">
-        <label>速度</label>
-        <input type="range" id="slider-speed" min="25" max="200" value="100" step="5">
+        <label for="slider-speed">速度</label>
+        <input type="range" id="slider-speed" min="25" max="200" value="100" step="5" title="播放速度">
         <span id="speed-display">1.0×</span>
       </div>
 
       <div class="control-group slider-group">
-        <label>音量</label>
-        <input type="range" id="slider-volume" min="0" max="100" value="75" step="1">
+        <label for="slider-volume">音量</label>
+        <input type="range" id="slider-volume" min="0" max="100" value="75" step="1" title="音量大小">
       </div>
 
       <div id="song-info">
@@ -132,7 +137,7 @@
           如果本地音源不可用，将自动从 CDN 获取（约 <strong>15 MB</strong>）。<br>
           选择<em>使用合成器</em>则跳过下载，随时可从顶栏重新下载。
         </p>
-        <div id="sample-dl-section" class="sample-dl-section" style="display:none">
+        <div id="sample-dl-section" class="sample-dl-section is-hidden">
           <div class="sample-dl-bar">
             <div id="sample-dl-bar-fill" class="sample-dl-bar-fill"></div>
           </div>

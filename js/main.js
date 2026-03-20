@@ -12,6 +12,8 @@ const fileInput   = document.getElementById('file-input');
 const btnImport   = document.getElementById('btn-import');
 const btnPlay     = document.getElementById('btn-play');
 const btnStop     = document.getElementById('btn-stop');
+const playlistSelect = document.getElementById('playlist-select');
+const btnPlaylistLoad = document.getElementById('btn-playlist-load');
 const sliderSpeed = document.getElementById('slider-speed');
 const speedDisp   = document.getElementById('speed-display');
 const sliderVol   = document.getElementById('slider-volume');
@@ -68,6 +70,7 @@ let lastTime   = performance.now();
 
 let trackColorMap = new Map();   // trackIndex → {fill, glow}
 let midiData      = null;        // parsed midi
+let playlistItems = [];          // server playlist items
 const _activeNotes = new Map();  // midi → {color, key, carry}
 
 // ── Sub‑systems ──────────────────────────────────────────────
@@ -185,14 +188,69 @@ restoreBackgroundState().catch(() => {
 });
 initSampleState();
 
-// Auto-load default MIDI on startup
-const DEFAULT_MIDI = '【鸣潮】3.1 OST 我与你.mid';
-  fetch(encodeURI(DEFAULT_MIDI))
-  .then(r => { if (!r.ok) throw new Error('default midi not found'); return r.arrayBuffer(); })
-  .then(buf => { if (!midiData) loadMidi(buf, DEFAULT_MIDI); })
-  .catch(() => {});
+// Auto-load playlist on startup
+loadPlaylistFromServer();
 
 // ── Helpers ──────────────────────────────────────────────────
+function displayName(filename) {
+  return (filename || '').replace(/\.(mid|midi)$/i, '') || '未命名 MIDI';
+}
+
+function fillPlaylistOptions(items) {
+  playlistSelect.innerHTML = '';
+
+  if (!items.length) {
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = 'playlist 为空';
+    playlistSelect.appendChild(emptyOpt);
+    playlistSelect.disabled = true;
+    btnPlaylistLoad.disabled = true;
+    return;
+  }
+
+  items.forEach((item, idx) => {
+    const opt = document.createElement('option');
+    opt.value = String(idx);
+    opt.textContent = displayName(item.name);
+    playlistSelect.appendChild(opt);
+  });
+
+  playlistSelect.disabled = false;
+  btnPlaylistLoad.disabled = false;
+}
+
+async function loadPlaylistItemByIndex(idx, onlyIfNoMidiLoaded) {
+  const item = playlistItems[idx];
+  if (!item) return;
+  if (onlyIfNoMidiLoaded && midiData) return;
+
+  try {
+    const resp = await fetch(item.path);
+    if (!resp.ok) throw new Error('playlist file fetch failed');
+    const buf = await resp.arrayBuffer();
+    loadMidi(buf, item.name);
+  } catch (_) {
+    // Keep UI usable when a listed file becomes unavailable.
+  }
+}
+
+async function loadPlaylistFromServer() {
+  try {
+    const resp = await fetch('./api/playlist');
+    if (!resp.ok) throw new Error('playlist api failed');
+    const data = await resp.json();
+    playlistItems = Array.isArray(data.files) ? data.files : [];
+  } catch (_) {
+    playlistItems = [];
+  }
+
+  fillPlaylistOptions(playlistItems);
+  if (playlistItems.length > 0) {
+    await loadPlaylistItemByIndex(0, true);
+  }
+}
+
 function trackColor(idx) {
   return CONSTANTS.TRACK_COLORS[idx % CONSTANTS.TRACK_COLORS.length];
 }
@@ -599,6 +657,18 @@ const kbInput = new KeyboardInput(
 
 // ── UI Controls ──────────────────────────────────────────────
 btnImport.addEventListener('click', () => fileInput.click());
+
+btnPlaylistLoad.addEventListener('click', () => {
+  const idx = parseInt(playlistSelect.value, 10);
+  if (!Number.isFinite(idx)) return;
+  loadPlaylistItemByIndex(idx, false);
+});
+
+playlistSelect.addEventListener('change', () => {
+  const idx = parseInt(playlistSelect.value, 10);
+  if (!Number.isFinite(idx)) return;
+  loadPlaylistItemByIndex(idx, false);
+});
 
 btnBg.addEventListener('click', openBgModal);
 btnBgClose.addEventListener('click', closeBgModal);

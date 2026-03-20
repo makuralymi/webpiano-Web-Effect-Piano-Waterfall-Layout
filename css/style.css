@@ -4,6 +4,8 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+.is-hidden { display: none !important; }
+
 :root {
   --bg:          #9c919e;
   --surface:     rgba(39, 18, 39, 0.82);
@@ -168,6 +170,35 @@ body::after {
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
+.playlist-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+#playlist-select {
+  min-width: 210px;
+  max-width: 280px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text);
+  padding: 0 28px 0 10px;
+  font-size: 12px;
+  outline: none;
+}
+
+#playlist-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255,97,199,0.16);
+}
+
+#playlist-select:disabled {
+  opacity: 0.45;
+}
+
 /* Slider group */
 .slider-group {
   display: flex;
@@ -178,6 +209,7 @@ body::after {
 }
 .slider-group input[type=range] {
   -webkit-appearance: none;
+  appearance: none;
   width: 90px;
   height: 3px;
   background: var(--border);
@@ -187,6 +219,7 @@ body::after {
 }
 .slider-group input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 13px;
   height: 13px;
   border-radius: 50%;
@@ -382,6 +415,7 @@ body::after {
 .opacity-row input[type=range] {
   flex: 1;
   -webkit-appearance: none;
+  appearance: none;
   height: 3px;
   background: var(--border);
   border-radius: 3px;
@@ -390,6 +424,7 @@ body::after {
 }
 .opacity-row input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 13px;
   height: 13px;
   border-radius: 50%;
@@ -421,6 +456,11 @@ body::after {
 
   #song-title {
     max-width: 140px;
+  }
+
+  #playlist-select {
+    min-width: 130px;
+    max-width: 160px;
   }
 
   .field-row {
