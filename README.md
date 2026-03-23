@@ -1,6 +1,6 @@
 # WebPiano
 
-Web 端钢琴可视化播放器。纯 HTML / CSS / JS 实现，无任何第三方依赖，无需构建步骤。
+Web 端特效钢琴可视化播放器。纯 HTML / CSS / JS 实现，无任何第三方依赖，无需构建步骤。
 
 ![preview](https://img.shields.io/badge/platform-browser-blueviolet) ![license](https://img.shields.io/badge/license-MIT-pink)
 
