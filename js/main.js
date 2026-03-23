@@ -32,12 +32,13 @@ const bgUrlInput  = document.getElementById('bg-url');
 const bgFileInput = document.getElementById('bg-file');
 const bgOpacitySlider  = document.getElementById('bg-opacity');
 const bgOpacityDisplay = document.getElementById('bg-opacity-display');
-const btnToggleGrid  = document.getElementById('btn-toggle-grid');
 const btnTrackColors = document.getElementById('btn-track-colors');
+const btnControlsToggle = document.getElementById('btn-controls-toggle');
 const tcModal     = document.getElementById('track-colors-modal');
 const tcModalBody = document.getElementById('tc-modal-body');
 const btnTcClose  = document.getElementById('btn-tc-close');
 const btnTcReset  = document.getElementById('btn-tc-reset');
+const controlsBar = document.getElementById('controls');
 
 // Sample download modal elements
 const sampleModal      = document.getElementById('sample-modal');
@@ -54,6 +55,7 @@ const BG_DB_NAME = 'webpiano.backgroundCache';
 const BG_DB_STORE = 'images';
 const BG_DB_KEY = 'active';
 const SAMPLE_STATE_KEY = 'webpiano.sampleState'; // null | 'downloaded' | 'skipped'
+const CONTROLS_COLLAPSED_KEY = 'webpiano.controlsCollapsed';
 
 function getSampleState() { return localStorage.getItem(SAMPLE_STATE_KEY); }
 function setSampleState(v) { localStorage.setItem(SAMPLE_STATE_KEY, v); }
@@ -61,7 +63,6 @@ function setSampleState(v) { localStorage.setItem(SAMPLE_STATE_KEY, v); }
 let _activeBgObjectUrl = null;
 window.BG_IMAGE  = null;
 window.BG_OPACITY = parseFloat(localStorage.getItem('webpiano.bgOpacity') ?? '0.9');
-window.SHOW_GRID = localStorage.getItem('webpiano.showGrid') !== 'false';
 
 // ── State ────────────────────────────────────────────────────
 let layout     = null;
@@ -167,12 +168,30 @@ function initSampleState() {
   }
 }
 
+function setControlsCollapsed(collapsed) {
+  document.body.classList.toggle('controls-collapsed', collapsed);
+  localStorage.setItem(CONTROLS_COLLAPSED_KEY, collapsed ? 'true' : 'false');
+
+  if (btnControlsToggle) {
+    const expanded = !collapsed;
+    btnControlsToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    btnControlsToggle.title = collapsed ? '展开顶栏' : '折叠顶栏';
+    btnControlsToggle.setAttribute('aria-label', collapsed ? '展开顶栏' : '折叠顶栏');
+  }
+
+  requestAnimationFrame(() => resize());
+}
+
+function initControlsCollapsedState() {
+  const saved = localStorage.getItem(CONTROLS_COLLAPSED_KEY) === 'true';
+  setControlsCollapsed(saved);
+}
+
 // ── Canvas resize ────────────────────────────────────────────
 function resize() {
-  const controls  = document.getElementById('controls');
   const progEl    = document.getElementById('progress-track');
   const hint      = document.getElementById('kb-hint');
-  const reserved  = controls.offsetHeight + progEl.offsetHeight + hint.offsetHeight;
+  const reserved  = controlsBar.offsetHeight + progEl.offsetHeight + hint.offsetHeight;
 
   canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight - reserved;
@@ -182,6 +201,7 @@ function resize() {
 }
 
 window.addEventListener('resize', () => { resize(); });
+initControlsCollapsedState();
 resize();
 restoreBackgroundState().catch(() => {
   localStorage.removeItem(BG_STORE_KEY);
@@ -729,6 +749,13 @@ const kbInput = new KeyboardInput(
 // ── UI Controls ──────────────────────────────────────────────
 btnImport.addEventListener('click', () => fileInput.click());
 
+if (btnControlsToggle) {
+  btnControlsToggle.addEventListener('click', () => {
+    const isCollapsed = document.body.classList.contains('controls-collapsed');
+    setControlsCollapsed(!isCollapsed);
+  });
+}
+
 btnPlaylistLoad.addEventListener('click', () => {
   const idx = parseInt(playlistSelect.value, 10);
   if (!Number.isFinite(idx)) return;
@@ -792,14 +819,6 @@ btnDownloadSample.addEventListener('click', () => {
       btnDownloadSample.disabled = false;
     }
   );
-});
-
-// Grid toggle
-btnToggleGrid.classList.toggle('active', window.SHOW_GRID);
-btnToggleGrid.addEventListener('click', () => {
-  window.SHOW_GRID = !window.SHOW_GRID;
-  localStorage.setItem('webpiano.showGrid', window.SHOW_GRID);
-  btnToggleGrid.classList.toggle('active', window.SHOW_GRID);
 });
 
 // Background opacity slider — sync initial state from persisted value

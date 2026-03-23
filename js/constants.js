@@ -26,9 +26,6 @@ const C = window.CONSTANTS = {
   BG:            '#09090f',
   BG_WATERFALL:  '#0b0b16',
 
-  // Grid line colour
-  GRID:          'rgba(30,30,60,0.7)',
-
   // White / black key at rest
   KEY_WHITE:     '#dedad0',
   KEY_WHITE_BOT: '#c8c4ba',

@@ -16,7 +16,9 @@
   --accent:      #ff61c7;
   --accent2:     #ff9ce8;
   --accent-glow: rgba(203, 198, 201, 0.677);
-  --ctrl-h:      50px;
+  --ctrl-h:      58px;
+  --ctrl-h-collapsed: 0px;
+  --ctrl-current-h: var(--ctrl-h);
   --prog-h:      4px;
   --hint-h:      26px;
   --custom-bg-image: none;
@@ -78,22 +80,74 @@ body::after {
 
 /* ─── Controls bar ─────────────────────────────────── */
 #controls {
-  height: var(--ctrl-h);
-  background: rgba(0, 0, 0, 0.359);
-  border-bottom: 1px solid rgb(255, 155, 232, 0.28);
-  -webkit-backdrop-filter: blur(30px) saturate(2.2) brightness(1.05);
-  backdrop-filter: blur(3px) saturate(2.2) brightness(1.05); 
+  min-height: var(--ctrl-current-h);
+  background:
+    linear-gradient(180deg, rgba(51, 22, 51, 0.72), rgba(28, 12, 29, 0.58)),
+    radial-gradient(100% 140% at 50% 0%, rgba(255, 125, 217, 0.22), rgba(255, 125, 217, 0));
+  border-bottom: 1px solid rgba(255, 155, 232, 0.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6) brightness(1.06);
+  backdrop-filter: blur(14px) saturate(1.6) brightness(1.06);
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 0 18px;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  transition: min-height 0.25s ease, padding 0.25s ease, gap 0.25s ease;
+}
+
+#controls::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 193, 239, 0.55), transparent);
+  pointer-events: none;
+}
+
+#controls > * {
+  transition: opacity 0.2s ease, transform 0.2s ease, max-width 0.25s ease, margin 0.25s ease;
+}
+
+body.controls-collapsed {
+  --ctrl-current-h: var(--ctrl-h-collapsed);
+}
+
+body.controls-collapsed #controls {
+  gap: 0;
+  padding: 0;
+  min-height: 0;
+  border-bottom-color: transparent;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+body.controls-collapsed #controls > .control-group,
+body.controls-collapsed #controls > #song-info,
+body.controls-collapsed #controls > .logo {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-width: 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+body.controls-collapsed #controls::after {
+  opacity: 0;
 }
 
 .control-group {
   display: flex;
   align-items: center;
   gap: 6px;
+  max-width: 1200px;
 }
 
 .logo {
@@ -115,6 +169,38 @@ body::after {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.controls-toggle {
+  margin-left: auto;
+  border-color: rgba(255, 155, 232, 0.42);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.controls-toggle .toggle-glyph {
+  font-size: 14px;
+  line-height: 1;
+  transform: translateY(-1px);
+  transition: transform 0.2s ease;
+}
+
+body.controls-collapsed .controls-toggle .toggle-glyph {
+  transform: translateY(-1px) rotate(180deg);
+}
+
+body.controls-collapsed .controls-toggle {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  margin: 0;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 999px;
+  z-index: 40;
+  background: rgba(39, 18, 39, 0.82);
+  border-color: rgba(255, 155, 232, 0.62);
+  box-shadow: 0 0 14px rgba(255, 97, 199, 0.28);
 }
 
 /* General button */
@@ -249,6 +335,7 @@ body::after {
   align-items: center;
   gap: 12px;
   font-size: 12px;
+  max-width: 380px;
 }
 #song-title {
   color: var(--text-dim);
@@ -454,6 +541,11 @@ body::after {
     padding: 0 10px;
   }
 
+  .controls-toggle {
+    width: 30px;
+    height: 30px;
+  }
+
   #song-title {
     max-width: 140px;
   }
@@ -495,7 +587,7 @@ body::after {
 /* ─── Track legend ──────────────────────────────────── */
 #track-legend {
   position: absolute;
-  top: calc(var(--ctrl-h) + var(--prog-h) + 10px);
+  top: calc(var(--ctrl-current-h) + var(--prog-h) + 10px);
   right: 14px;
   display: flex;
   flex-direction: column;
